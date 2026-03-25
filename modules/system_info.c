@@ -1,44 +1,69 @@
-#include <stdio.h>
+/*
+24.03.2026
+Hostname, kernel version, OS, arch, UID, PID, GID, login name
+This module covers all of it
+*/
 
+#include <stdio.h>
 #include <unistd.h>  // This one contains POSIX system calls for interacting with the operating system.
 #include <sys/utsname.h>  // This header gives access to kernel and architecture information through a structure called utsname.
 #include <sys/types.h> // That header defines many of the fundamental POSIX data types used across the system.
 #include "system_info.h"  
 
-void infoprint(const char *label, const char *value) {
+void infoprintstr(const char *label, const char *value) {
     printf("[+] %s : %s\n", label, value);
 }
-void infoprint(const char *label, long value) {
+void infoprintnum(const char *label, long value) {
     printf("[+] %s : %ld\n", label, value);
 }
+
+// ALL THE FOLLOWING CODE IS UNSAFE, ADD SAFETY CHECKS [1]
 
 void run_system_info(){
 
     uid_t uid = getuid(); 
     pid_t pid = getpid();
+    pid_t pgrp = getpgrp();
     
     long hostid = gethostid();
 
-    char hostname[50];
-    int hostname = gethostname(hostname, sixeof(hostname));
+    infoprintnum("User ID", uid);
+    infoprintnum("Process ID", pid);
+    infoprintnum("Process Group ID", pgrp);
+    infoprintnum("Host ID", hostid);
+    
+    char hostname[100];
+    gethostname(hostname, sizeof(hostname));
+    infoprintstr("Hostname", hostname);
+    // THIS ^ HERE IS UNSAFE YOU NEED TO CHANGE IT
 
     gid_t egid = getegid();
-    uid_t euid = geteuid();
-    gid_t gid = getgid();
-    int groups = getgroups(int, gid_t []);
-    pid_t sid = getsid(pid_t);
-    
+    infoprintnum("Effective Group ID", egid);
 
-    char *login = getlogin();
-    int login_r =  getlogin_r(char *, size_t);
+    uid_t euid = geteuid();
+    infoprintnum("Effective User ID", euid);
+
+    gid_t gid = getgid();
+    infoprintnum("Group ID", gid);
+
+    gid_t groups[250];
+    int n = getgroups(0, NULL);
+    getgroups(n, groups);
+    printf("Groups IDs:\n");
+    for(int i=0; i<n; i++){
+        infoprintnum("->", groups[i]);
+    }
+
+    pid_t sid = getsid(pid);
+    infoprintnum("Session leader process group ID", sid);
+
+    char loginname[250];
+    getlogin_r(loginname, sizeof(loginname));
+    infoprintstr("Login name", loginname);
     
     // for parents
-    pid_t pgid = getpgid(pid_t);
-    pid_t pgrp = getpgrp();
     pid_t ppid = getppid();
-    
-
-    // there are also set functions for these btw
-
-
+    infoprintnum("Parent Process ID", ppid);
 }
+
+
