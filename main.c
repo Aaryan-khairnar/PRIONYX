@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "modules/system_info.h"
 #include "modules/env_scan.h"
-//#include "modules/suid_scan.h"
+//#include "modules/file_perm_enum.h"
 //#include "modules/process_scan.h"
 
 int main() {
@@ -16,7 +16,7 @@ int main() {
     run_env_scan();
     
 
-    //run_suid_scan();
+    //run_file_perm_enum();
     //printf("\n");
 
     //run_process_scan();

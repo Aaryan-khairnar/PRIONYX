@@ -16,9 +16,9 @@ typedef struct {
   int is_critical;
 } EnvVar;
 
-int is_critical_var(char *entry) {
+int is_critical_var(char *entry) { // function to segregate env variables
 
-    if (strncmp(entry, "PATH=", 5) == 0) return 2;
+    if (strncmp(entry, "PATH=", 5) == 0) return 2;  //compare the first 5 letters of string 1 (entry) and string 2
     if (strncmp(entry, "LD_", 3) == 0) return 2;
     if (strncmp(entry, "USER=", 5) == 0) return 2;
     if (strncmp(entry, "LOGNAME=", 8) == 0) return 2;

@@ -156,4 +156,9 @@ void run_system_info() {
     infoprintstr("Kernel Version", s.version);
     infoprintstr("Architecture", s.machine);
   }
+
+  if(s.euid == 0){
+    printf("[!] Running as root — extended checks enabled\n");
+    // DO THIS LATER
+  }
 }
