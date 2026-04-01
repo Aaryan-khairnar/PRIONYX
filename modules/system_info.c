@@ -3,7 +3,6 @@
 Hostname, kernel version, OS, arch, UID, PID, GID, login name
 This module covers all of it
 */
-
  
 #include <stdio.h>
 
@@ -44,7 +43,7 @@ void run_system_info() {
 
   long hostid = gethostid();
   infoprintnum("Host ID", hostid);
-  // Returns process group ID of calling process
+  // Returns a host identifier (legacy, not reliable on modern systems)
 
   char hostname[100];
   if(gethostname(hostname, sizeof(hostname)) == 0){
@@ -84,11 +83,11 @@ void run_system_info() {
   printf("Other Groups user is a part of:\n");
   for (int i = 0; i < n; i++) {
     gid_t gid = groups[i];
-    infoprintnum("Group ID", gid);
+    printf("Group %d: %ld", i, gid);
 
     struct group *grp = getgrgid(gid);
     if (grp != NULL){
-      infoprintstr("\t|-Name->", grp->gr_name);
+      printf("(%s)\n", grp->gr_name);
     } else {
       infoprintstr("Name", "Unknown");
     }
@@ -110,4 +109,14 @@ void run_system_info() {
   // for parents
   pid_t ppid = getppid();
   infoprintnum("Parent Process ID", ppid);
+
+  // system and kernel info
+  struct utsname u;
+  if (uname(&u) == 0) {
+    infoprintstr("System Name", u.sysname);
+    infoprintstr("Node Name", u.nodename);
+    infoprintstr("Kernel Release", u.release);
+    infoprintstr("Kernel Version", u.version);
+    infoprintstr("Architecture", u.machine);
+  }
 }
