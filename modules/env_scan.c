@@ -66,13 +66,7 @@ void run_env_scan(){
     }
   }
 }
-
-/*
-int main(){
-  run_env_scan();
-  return 0;
-}
-*/
+  
 
 /*
 Pointers:
