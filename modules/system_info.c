@@ -4,12 +4,14 @@ Hostname, kernel version, OS, arch, UID, PID, GID, login name
 This module covers all of it
 */
 
-#include <pwd.h> // retrieve information from password file
-#include <grp.h> // retrieve information from grp file 
+ 
 #include <stdio.h>
+
 #include <sys/types.h> // That header defines many of the fundamental POSIX data types used across the system.
 #include <sys/utsname.h> // This header gives access to kernel and architecture information through a structure called utsname.
 #include <unistd.h> // This one contains POSIX system calls for interacting with the operating system.
+#include <pwd.h> // retrieve information from password file
+#include <grp.h> // retrieve information from grp file
 
 #include "system_info.h"
 
@@ -73,13 +75,13 @@ void run_system_info() {
 
 
   gid_t gid = getgid();
-  infoprintnum("Group ID", gid);
+  infoprintnum("User Group ID", gid);
   // returns the group ID of the user who called/invoke the process
   
   gid_t groups[250];
   int n = getgroups(0, NULL);
   getgroups(n, groups);
-  printf("Groups:\n");
+  printf("Other Groups user is a part of:\n");
   for (int i = 0; i < n; i++) {
     gid_t gid = groups[i];
     infoprintnum("Group ID", gid);
