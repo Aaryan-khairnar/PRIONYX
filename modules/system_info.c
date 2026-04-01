@@ -111,10 +111,3 @@ void run_system_info() {
   pid_t ppid = getppid();
   infoprintnum("Parent Process ID", ppid);
 }
-
-/*
-int main(){
-  run_system_info();
-  return 0;
-}
-*/

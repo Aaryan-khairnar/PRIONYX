@@ -1,5 +1,5 @@
 /*
-30.03.2026
+01.04.2026
 This module covers Environment Variables and Stores it in a key value pair
 */
 
@@ -67,11 +67,12 @@ void run_env_scan(){
   }
 }
 
+/*
 int main(){
   run_env_scan();
   return 0;
 }
-
+*/
 
 /*
 Pointers:
