@@ -197,9 +197,10 @@ void analyse_results(){
     // sort results by risk first
     qsort(results, file_count, sizeof(struct FileMetadata), compare_risk);
 
-    printf("\n==== FILE METADATA ANALYSIS ====\n\n");
-    printf("%-40s | %-25s | %-10s | %s\n", 
+    printf("\n%-40s | %-25s | %-10s | %s\n", 
            "PATH", "ISSUE", "PERMS", "RISK SCORE");
+
+    printf("----------------------------------------------------------------------------------------------\n");
 
     for (int i = 0; i < file_count; i++) {
 
@@ -261,8 +262,6 @@ void analyse_results(){
 
 void file_perm_enum_scan(){
 
-    printf("\n====== FILE PERMISSION ENUMERATION ======\n");
-
     add_dir_to_list("/bin");
     add_dir_to_list("/usr/bin");
     add_dir_to_list("/usr/sbin");
@@ -309,8 +308,4 @@ void file_perm_enum_scan(){
         read_dir_metadata(dir_list[i]);
     }
     analyse_results();
-}
-
-int main(){
-    file_perm_enum_scan();
 }
