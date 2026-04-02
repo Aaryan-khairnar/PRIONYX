@@ -1,4 +1,4 @@
-# PRIONYX - Defender Enumeration Tool (C Edition)
+# PRIONYX - Defender Enumeration Tool
 
 PRIONYX is a dependency-free, statically compiled Linux enumeration and incident response tool written in pure C. Designed for defenders, DFIR analysts, and sysadmins who need a single binary that runs on any Linux system — including stripped containers, embedded devices, and potentially compromised hosts — without relying on interpreters, package managers, or shell utilities.
 
