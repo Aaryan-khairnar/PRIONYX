@@ -1,6 +1,6 @@
-# HERMES - Defender Enumeration Tool (C Edition)
+# PRIONYX - Defender Enumeration Tool (C Edition)
 
-HERMES is a dependency-free, statically compiled Linux enumeration and incident response tool written in pure C. Designed for defenders, DFIR analysts, and sysadmins who need a single binary that runs on any Linux system — including stripped containers, embedded devices, and potentially compromised hosts — without relying on interpreters, package managers, or shell utilities.
+PRIONYX is a dependency-free, statically compiled Linux enumeration and incident response tool written in pure C. Designed for defenders, DFIR analysts, and sysadmins who need a single binary that runs on any Linux system — including stripped containers, embedded devices, and potentially compromised hosts — without relying on interpreters, package managers, or shell utilities.
 
 Unlike typical offensive enumeration scripts, this tool focuses on **system awareness and safe inspection**, providing insights into the system’s configuration, permissions, and processes without relying on external shell utilities. Its modular design makes it easy to expand with additional scanning capabilities.
 
@@ -17,7 +17,7 @@ Unlike typical offensive enumeration scripts, this tool focuses on **system awar
 Compile the project with all modules:
 
 ```bash
-gcc main.c modules/*.c -o hermes_enum
+gcc main.c modules/*.c -o PRIONYX_enum
 ````
 
 ## Usage
@@ -25,13 +25,13 @@ gcc main.c modules/*.c -o hermes_enum
 Run the tool:
 
 ```bash
-./hermes_enum
+./PRIONYX_enum
 ```
 
 Example output:
 
 ```
-=== HERMES Defender Enumeration Tool v0.1 ===
+=== PRIONYX Defender Enumeration Tool v0.1 ===
 
 [SYSTEM INFO]
 Hostname: arch
@@ -61,7 +61,7 @@ Uid: 1000    1000    1000    1000
 ## Structure
 
 ```
-HERMES/
+PRIONYX/
 ├─ main.c
 └─ modules/
     ├─ system_info.c
