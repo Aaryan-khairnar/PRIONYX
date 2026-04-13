@@ -1,6 +1,6 @@
 /*
 11.04.2025
-This module Walks key directories, finds all SUID/SGID binaries using stat()
+This module Walks key directories, finds all SUID/SGID binaries using lstat()
 /usr/bin, /bin, /sbin, /usr/sbin, /opt
 opendir/readdir, stat(), S_ISUID/S_ISGID macros, recursion or iteration
 */
@@ -48,6 +48,8 @@ void add_issue(struct FileMetadata *f, const char *tag);
 int is_duplicate(struct FileMetadata *f);
 /**********************************/
 
+
+/******* FUNTION FOR RECURSIVE SCANNING **********/
 void visit_directory(char* dirpath){
     DIR *dp; //Make a DIR datatype pointer called dp
     dp = opendir(dirpath); //Point dp to actual location of our file
@@ -95,7 +97,7 @@ void visit_directory(char* dirpath){
     closedir(dp); //Close directory
 }
 
-
+/******* ACTUALLY DOES THE STORING OF INFORMATION PART **********/
 void store_res(struct stat st, char* path){
     struct FileMetadata f;
         snprintf(f.path, sizeof(f.path), "%s", path);
@@ -126,7 +128,7 @@ void store_res(struct stat st, char* path){
         return;
 }
 
-
+/******* CHOOSES WHAT TO STORE AND WHAT NOT TO STORE **********/
 int is_result_interesting(struct FileMetadata *f){
     f->score = 0;
     f->issue[0] = '\0';  // Initialise both so we don't have any 
@@ -162,6 +164,7 @@ int is_result_interesting(struct FileMetadata *f){
     }
 }
 
+/******* PUTS ALL FILES IN A DESCENDING ORDER OF RISK - HIGH RISK FIRST **********/
 int compare_files(const void *a, const void *b) {
     struct FileMetadata *f1 = (struct FileMetadata *)a;
     struct FileMetadata *f2 = (struct FileMetadata *)b;
@@ -169,6 +172,7 @@ int compare_files(const void *a, const void *b) {
     return f2->score - f1->score; // descending order
 }
 
+/******* THE ISSUE FIELD IS MODIFIED TO STORE IN A READABLE WAY **********/
 void add_issue(struct FileMetadata *f, const char *tag) {
     if(strlen(f->issue) > 0) {
         strncat(f->issue, " | ", sizeof(f->issue) - strlen(f->issue) - 1);
@@ -176,6 +180,7 @@ void add_issue(struct FileMetadata *f, const char *tag) {
     strncat(f->issue, tag, sizeof(f->issue) - strlen(f->issue) - 1);
 }
 
+/******* SCANS IF THE FILE IS DUPLICATE USING INODE FIELD **********/
 int is_duplicate(struct FileMetadata *f){
     for(int i = 0; i < filecount; i++){
         if(result[i].inode == f->inode &&
@@ -186,6 +191,7 @@ int is_duplicate(struct FileMetadata *f){
     return 0;
 }
 
+/******* PRINTS ALL RESULTS IN A READABLE FORM **********/
 void print_results(struct FileMetadata* result){
 
     qsort(result, filecount, sizeof(struct FileMetadata), compare_files);
@@ -267,6 +273,7 @@ void print_results(struct FileMetadata* result){
 }
 }
 
+/******* DEFINES WHAT DIRECTORIES WE ACTUALLY SCAN **********/
 void file_perm_enum_scan(){
 
     visit_directory("/bin");
