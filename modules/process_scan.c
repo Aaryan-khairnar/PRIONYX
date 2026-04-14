@@ -19,20 +19,25 @@ Linux programming interface pg 267
 #define MAX_PROC 70000
 
 struct process{
-    char name[512];
     int pid;
-    int ppid;
-    char state;
-    int threads;
-    char binpath[1024];
+    char name[1024];
+    int uid; //Which user runs process 
+    int ppid;  //Parent process Id
+    char state; //Sleeping or Active
+    int threads; // No of threads?
+    char binpath[1024]; //Binary path
     char cwd[1024]; //current working directory
     int no_of_fd;
 } result[MAX_PROC];
 int processcount = 0;
 
+void store_res(struct process *p);
+void read_status_fields(struct process *p);
+
 void visit_proc_dir(){
 
     DIR *dirpointer = opendir("/proc");
+    if(dirpointer == NULL) { return; }
 
     struct dirent *entry;
 
@@ -57,20 +62,50 @@ void visit_proc_dir(){
             struct process p;
             p.pid = atoi(entry->d_name);
             
-            store_res();
+            store_res(&p);
 
             if (processcount < MAX_PROC) {
                     result[processcount++] = p;
             } else {
-                printf("The Processes count limit of %d reached, please change it in the source code\n", MAX_PROC);
+                printf("The Processes count limit of %d reached, please increase it in the source code\n", MAX_PROC);
             }
         }
     }
     closedir(dirpointer);
 }
 
-void store_res(){
-    
+void store_res(struct process *p){
+    read_status_fields(p);
+    //read_exe_symlink(p);
+    //read_cwd_symlink(p);
+    //count_fd(p);
+}
+
+void read_status_fields(struct process *p){
+    char path[512];
+    snprintf(path, sizeof(path), "/proc/%d/status", p->pid);
+    FILE *fp = fopen(path, "r");
+
+    if(fp == NULL){ return; }
+
+    char line[1024];
+    while(fgets(line, sizeof(line), fp)){
+        if (strncmp(line, "Name:", 5) == 0) {
+            sscanf(line, "Name:\t%511s", p->name);
+        }
+
+        else if (strncmp(line, "PPid:", 5) == 0) {
+        sscanf(line, "PPid:\t%d", &p->ppid);
+        }
+
+        else if (strncmp(line, "State:", 6) == 0) {
+        sscanf(line, "State:\t%c", &p->state);
+        }
+
+        else if (strncmp(line, "Threads:", 8) == 0) {
+        sscanf(line, "Threads:\t%d", &p->threads);
+        }
+    }
 }
 
 void process_scan(){
@@ -79,7 +114,9 @@ void process_scan(){
     printf("\nNo of processes in the system: %d\n", processcount);
 
     for(int i =0; i< processcount; i++){
-        printf("%d\n", result[i].pid);
+        printf("[%d]PID: %d\tName: %s\nState: %c\tThreads: %d\n\n", i, result[i].pid, result[i].name, result[i].state, 
+        result[i].threads);
+
     }
 }
 

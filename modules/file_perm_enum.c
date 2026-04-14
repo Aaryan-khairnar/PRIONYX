@@ -41,11 +41,13 @@ int filecount = 0;
 int skipcount = 0;
 
 /******FUNCTIONS DECLARATION*******/
+void visit_directory(char* dirpath);
 void store_res(struct stat st, char* path);
 int is_result_interesting(struct FileMetadata *f);
-void print_results(struct FileMetadata* result);
+int compare_files(const void *a, const void *b);
 void add_issue(struct FileMetadata *f, const char *tag);
 int is_duplicate(struct FileMetadata *f);
+void print_results(struct FileMetadata* result);
 /**********************************/
 
 
