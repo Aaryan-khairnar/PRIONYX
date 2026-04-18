@@ -33,6 +33,9 @@ int processcount = 0;
 
 void store_res(struct process *p);
 void read_status_fields(struct process *p);
+void read_exe_symlink(struct process *p);
+void read_cwd_symlink(struct process *p);
+void count_fd(struct process *p);
 
 void visit_proc_dir(){
 
@@ -76,12 +79,14 @@ void visit_proc_dir(){
 
 void store_res(struct process *p){
     read_status_fields(p);
-    //read_exe_symlink(p);
-    //read_cwd_symlink(p);
-    //count_fd(p);
+    read_exe_symlink(p);
+    read_cwd_symlink(p);
+    count_fd(p);
 }
 
 void read_status_fields(struct process *p){
+    if(!p) return;
+
     char path[512];
     snprintf(path, sizeof(path), "/proc/%d/status", p->pid);
     FILE *fp = fopen(path, "r");
@@ -108,15 +113,67 @@ void read_status_fields(struct process *p){
     }
 }
 
+void read_exe_symlink(struct process *p){
+    if(!p) return;
+
+    char path[512];
+    snprintf(path, sizeof(path), "/proc/%d/exe", p->pid);
+
+    ssize_t len = readlink(path, p->binpath, sizeof(p->binpath) - 1);
+    if (len != -1) {
+        p->binpath[len] = '\0'; // Null-terminate the string
+    } else {
+        strcpy(p->binpath, "[unreadable]");
+    }
+}
+
+void read_cwd_symlink(struct process *p){
+    if(!p) return;
+
+    char path[512];
+    snprintf(path, sizeof(path), "/proc/%d/cwd", p->pid);
+
+    ssize_t len = readlink(path, p->cwd, sizeof(p->cwd) - 1);
+    if (len != -1) {
+        p->cwd[len] = '\0'; // Null-terminate the string
+    } else {
+        strcpy(p->cwd, "[unreadable]");
+    }
+}
+
+void count_fd(struct process *p){
+    if(!p) return;
+
+    char path[512];
+    snprintf(path, sizeof(path), "/proc/%d/fd", p->pid);
+    
+    DIR *dirpointer = opendir(path);
+    if(dirpointer == NULL) { return; }
+
+    if(dirpointer){
+        int count = 0;
+
+        struct dirent *entry;
+        while((entry = readdir(dirpointer)) != NULL){
+            if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0){
+                continue;
+            }
+            count++;
+        }
+        p->no_of_fd = count;
+        closedir(dirpointer);
+    }
+}
+
 void process_scan(){
 
     visit_proc_dir();
     printf("\nNo of processes in the system: %d\n", processcount);
 
     for(int i =0; i< processcount; i++){
-        printf("[%d]PID: %d\tName: %s\nState: %c\tThreads: %d\n\n", i, result[i].pid, result[i].name, result[i].state, 
+        printf("[%d] PID: %d\tName: %s\n|- State: %c\tThreads: %d", i, result[i].pid, result[i].name, result[i].state, 
         result[i].threads);
-
+        printf("\n|-Binpath: %s\n|-Current Dir: %s\n|-No of fd: %d\n\n", result[i].binpath, result[i].cwd, result[i].no_of_fd);
     }
 }
 
