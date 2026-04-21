@@ -37,8 +37,8 @@ struct FileMetadata {
     ino_t inode;
     dev_t device;
 } result[MAX_FILES];
-int filecount = 0;
-int skipcount = 0;
+static int processcount = 0;
+static int skipcount = 0;
 
 /******FUNCTIONS DECLARATION*******/
 void visit_directory(char* dirpath);

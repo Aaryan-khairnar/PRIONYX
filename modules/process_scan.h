@@ -1,3 +1,3 @@
 #pragma once
 
-void process_scan();
+void run_process_scan();

@@ -21,6 +21,7 @@ Linux programming interface pg 267
 struct process{
     int pid;
     char name[1024];
+    char cmdline[2048];
     int uid; //Which user runs process 
     int ppid;  //Parent process Id
     char state; //Sleeping or Active
@@ -28,14 +29,20 @@ struct process{
     char binpath[1024]; //Binary path
     char cwd[1024]; //current working directory
     int no_of_fd;
+    int score;
 } result[MAX_PROC];
 int processcount = 0;
+int skipcount = 0;
 
 void store_res(struct process *p);
 void read_status_fields(struct process *p);
 void read_exe_symlink(struct process *p);
 void read_cwd_symlink(struct process *p);
 void count_fd(struct process *p);
+void read_commandline(struct process *p);
+int is_result_interesting(struct process *p);
+int compare_scores(const void *a, const void *b);
+void print_result();
 
 void visit_proc_dir(){
 
@@ -63,15 +70,22 @@ void visit_proc_dir(){
 
         if(is_process){
             struct process p;
+            memset(&p, 0, sizeof(struct process));
             p.pid = atoi(entry->d_name);
             
             store_res(&p);
-
-            if (processcount < MAX_PROC) {
+            if(is_result_interesting(&p)){
+                if (processcount < MAX_PROC) { 
                     result[processcount++] = p;
-            } else {
-                printf("The Processes count limit of %d reached, please increase it in the source code\n", MAX_PROC);
+                } else {printf("\nNo of processes in the system: %d\n", processcount);
+                    printf("The Processes count limit of %d reached, please increase it in the source code\n", MAX_PROC);
+                }
             }
+            else{
+                skipcount++;
+                continue;
+            }
+            
         }
     }
     closedir(dirpointer);
@@ -82,6 +96,28 @@ void store_res(struct process *p){
     read_exe_symlink(p);
     read_cwd_symlink(p);
     count_fd(p);
+    read_commandline(p);
+}
+
+int is_result_interesting(struct process *p){
+    int score = 0;
+
+    if (p->uid == 0) score += 1;
+    if (strlen(p->cmdline) == 0) score += 3;
+    if (strncmp(p->binpath, "/tmp", 4) == 0 || strncmp(p->binpath, "/dev/shm", 8) == 0) score += 4;
+    if (p->ppid == 1) score += 2;
+    if (p->no_of_fd > 100) score += 2;
+    if (p->state == 'Z') score += 1;
+
+    // Check for name mismatch
+    if (strlen(p->name) > 0 && strcmp(p->binpath, "[unreadable]") != 0) {
+        if (strstr(p->binpath, p->name) == NULL) score += 3;
+    }
+
+    p->score = score;
+
+    // Return true if it hits "low" risk (score >= 1)
+    return (score >= 1);
 }
 
 void read_status_fields(struct process *p){
@@ -103,6 +139,10 @@ void read_status_fields(struct process *p){
         sscanf(line, "PPid:\t%d", &p->ppid);
         }
 
+        else if (strncmp(line, "Uid:", 4) == 0) {
+        sscanf(line, "Uid:\t%d", &p->uid);
+        }
+
         else if (strncmp(line, "State:", 6) == 0) {
         sscanf(line, "State:\t%c", &p->state);
         }
@@ -111,6 +151,7 @@ void read_status_fields(struct process *p){
         sscanf(line, "Threads:\t%d", &p->threads);
         }
     }
+    fclose(fp);
 }
 
 void read_exe_symlink(struct process *p){
@@ -165,98 +206,91 @@ void count_fd(struct process *p){
     }
 }
 
-void process_scan(){
+void read_commandline(struct process *p){
+    if(!p) return;
+
+    char path[512];
+    snprintf(path, sizeof(path), "/proc/%d/cmdline", p->pid);
+    FILE *fp = fopen(path, "r");
+    
+    if(fp == NULL){ 
+        p->cmdline[0] = '\0';
+        return; 
+    }
+
+    size_t bytes_read = fread(p->cmdline, 1, sizeof(p->cmdline) - 1, fp);
+    p->cmdline[bytes_read] = '\0';
+
+    fclose(fp);
+}
+
+// Compare function for qsort (sorts descending by threat score)
+int compare_scores(const void *a, const void *b){
+    struct process *p1 = (struct process *)a;
+    struct process *p2 = (struct process *)b;
+    return p2->score - p1->score; 
+}
+
+void print_result(){
+
+    // 1. Sort the results array by severity
+    qsort(result, processcount, sizeof(struct process), compare_scores);
+
+    // 2. Tally the severities
+    int high = 0, med = 0, low = 0;
+    for(int i = 0; i < processcount; i++){
+        if(result[i].score >= 6) high++;
+        else if(result[i].score >= 3) med++;
+        else low++;
+    }
+
+    // 3. Print Header & Legend
+
+    printf("========== ISSUE INDEX ==========\n");
+    printf("UID_ROOT        -> Runs with root privileges (high impact if exploited)\n");
+    printf("HIDDEN_CMDLINE  -> Process is masking its arguments (CRITICAL)\n");
+    printf("TMP_EXEC        -> Executing from /tmp or /dev/shm\n");
+    printf("ORPHAN_ROOT     -> Parent PID is 1 (potential daemon or pivot)\n");
+    printf("HIGH_FD_COUNT   -> Process has >100 open files/sockets\n");
+    printf("=================================\n\n");
+
+    // 4. Print Summary
+    printf("========== SCAN SUMMARY ==========\n");
+    printf("Total interesting processes : %d\n", processcount);
+    printf("High Risk   (>=6)           : %d\n", high);
+    printf("Medium Risk (3-5)           : %d\n", med);
+    printf("Low Risk    (1-2)           : %d\n", low);
+    printf("==================================\n\n");
+
+    // 5. Print the formatted table
+    printf("========== FINDINGS (sorted by severity) ==========\n\n");
+    
+    // Table Header
+    printf("%-5s %-20s | %-45s | %-10s | %s\n", "SCORE", "NAME", "BINPATH", "UID:PPID", "FDs");
+    
+    for(int i = 0; i < processcount; i++){
+        // Format the UID and PPID into a single string like "0:1"
+        char id_str[32];
+        snprintf(id_str, sizeof(id_str), "%d:%d", result[i].uid, result[i].ppid);
+        
+        // Use %-XX.XXs to strictly enforce column widths (pads with spaces, truncates if too long)
+        printf("[%d]   %-20.20s | %-45.45s | %-10.10s | %d\n", 
+            result[i].score, 
+            result[i].name, 
+            result[i].binpath, 
+            id_str, 
+            result[i].no_of_fd);
+    }
+    printf("\n");
+}
+
+void run_process_scan(){
 
     visit_proc_dir();
-    printf("\nNo of processes in the system: %d\n", processcount);
-
-    for(int i =0; i< processcount; i++){
-        printf("[%d] PID: %d\tName: %s\n|- State: %c\tThreads: %d", i, result[i].pid, result[i].name, result[i].state, 
-        result[i].threads);
-        printf("\n|-Binpath: %s\n|-Current Dir: %s\n|-No of fd: %d\n\n", result[i].binpath, result[i].cwd, result[i].no_of_fd);
+    
+    if(skipcount > 0){
+        printf("A few Processes were skipped because of permission issues (run program with sudo if possible)");
     }
+
+    print_result();
 }
-
-int main(){
-    process_scan();
-}
-
-/*
-1. /proc/[pid]/status → your main goldmine
-From this file, extract:
-Name
-Uid
-PPid (parent PID)
-State
-Threads
-Why it matters:
-
-Parent-child relationships expose weird spawning
-UID tells privilege level
-Too many threads = possible abuse
-
-2. /proc/[pid]/cmdline
-Empty cmdline → big red flag
-Weird arguments → suspicious behavior
-Example:
-Normal: /usr/bin/bash
-Suspicious: empty or binary gibberish
-
-3. /proc/[pid]/exe (VERY important)
-This is a symlink → actual binary path.
-Use:
-readlink("/proc/[pid]/exe", ...)
-Why this is powerful:
-If binary runs from:
-/tmp
-/dev/shm
-unknown location
-→ huge red flag
-
-4. /proc/[pid]/cwd
-
-Current working directory.
-
-If a process is running from:
-
-/tmp
-deleted directory
-→ suspicious
-
-5. /proc/[pid]/fd/ (file descriptors)
-
-Count how many files/sockets it has open.
-
-Too many FDs → possible:
-scanning
-network abuse
-leaks
-
-You don’t need deep inspection yet — just count is enough.
-
-6. /proc/[pid]/stat or statm
-Basic resource usage:
-CPU time
-memory
-Useful later for:
-detecting heavy abnormal usage
-
-
-Now the interesting part — how to flag suspicious
-Here’s a simple scoring model you can actually implement right now:
-Example scoring logic
-Start with score = 0
-Add points:
-UID = 0 (root process) → +1
-cmdline is empty → +3
-exe path in /tmp, /dev/shm → +4
-parent PID = 1 but not a known service → +2
-too many FDs (>100 for now) → +2
-name mismatch with exe → +3
-zombie state → +1
-Then classify:
-score >= 6 → High risk
-3–5 → Medium
-1–2 → Low
-
-*/
