@@ -30,17 +30,18 @@ struct process{
     char cwd[1024]; //current working directory
     int no_of_fd;
     int score;
-} result[MAX_PROC];
-int processcount = 0;
-int skipcount = 0;
+    char issues[256];
+} resultprocess[MAX_PROC];
+static int processcount = 0;
+static int skipcount = 0;
 
-void store_res(struct process *p);
+void store_res_proc(struct process *p);
 void read_status_fields(struct process *p);
 void read_exe_symlink(struct process *p);
 void read_cwd_symlink(struct process *p);
 void count_fd(struct process *p);
 void read_commandline(struct process *p);
-int is_result_interesting(struct process *p);
+int is_presult_interesting(struct process *p);
 int compare_scores(const void *a, const void *b);
 void print_result();
 
@@ -73,10 +74,10 @@ void visit_proc_dir(){
             memset(&p, 0, sizeof(struct process));
             p.pid = atoi(entry->d_name);
             
-            store_res(&p);
-            if(is_result_interesting(&p)){
+            store_res_proc(&p);
+            if(is_presult_interesting(&p)){
                 if (processcount < MAX_PROC) { 
-                    result[processcount++] = p;
+                    resultprocess[processcount++] = p;
                 } else {printf("\nNo of processes in the system: %d\n", processcount);
                     printf("The Processes count limit of %d reached, please increase it in the source code\n", MAX_PROC);
                 }
@@ -91,7 +92,7 @@ void visit_proc_dir(){
     closedir(dirpointer);
 }
 
-void store_res(struct process *p){
+void store_res_proc(struct process *p){
     read_status_fields(p);
     read_exe_symlink(p);
     read_cwd_symlink(p);
@@ -99,24 +100,68 @@ void store_res(struct process *p){
     read_commandline(p);
 }
 
-int is_result_interesting(struct process *p){
+int is_presult_interesting(struct process *p){
     int score = 0;
 
-    if (p->uid == 0) score += 1;
-    if (strlen(p->cmdline) == 0) score += 3;
-    if (strncmp(p->binpath, "/tmp", 4) == 0 || strncmp(p->binpath, "/dev/shm", 8) == 0) score += 4;
-    if (p->ppid == 1) score += 2;
-    if (p->no_of_fd > 100) score += 2;
-    if (p->state == 'Z') score += 1;
+    // Optional: Filter out Kernel Threads (highly recommended so your scan isn't flooded with kworkers)
+    if (p->pid == 2 || p->ppid == 2) {
+        return 0; 
+    }
+
+    if (p->uid == 0) {
+        score += 1;
+        strcat(p->issues, "UID_ROOT ");
+    }
+    if (strlen(p->cmdline) == 0) {
+        score += 3;
+        strcat(p->issues, "HIDDEN_CMDLINE ");
+    }
+    if (strncmp(p->binpath, "/tmp", 4) == 0 || strncmp(p->binpath, "/dev/shm", 8) == 0) {
+        score += 4;
+        strcat(p->issues, "TMP_EXEC ");
+    }
+    if (p->ppid == 1) {
+        score += 2;
+        strcat(p->issues, "ORPHAN_ROOT ");
+    }
+    if (p->no_of_fd > 100) {
+        score += 2;
+        strcat(p->issues, "HIGH_FD ");
+    }
+
+    // Catch processes running entirely in memory (memfd)
+    if (strncmp(p->binpath, "/memfd:", 7) == 0) {
+        score += 5;
+        strcat(p->issues, "MEMFD_EXEC ");
+    }
+    
+    // Catch binaries that were executed and immediately deleted from disk to hide
+    if (strstr(p->binpath, "(deleted)") != NULL) {
+        score += 4;
+        strcat(p->issues, "EXEC_DELETED ");
+    }
 
     // Check for name mismatch
     if (strlen(p->name) > 0 && strcmp(p->binpath, "[unreadable]") != 0) {
-        if (strstr(p->binpath, p->name) == NULL) score += 3;
+        if (strstr(p->binpath, p->name) == NULL) {
+            score += 3;
+            strcat(p->issues, "NAME_MISMATCH ");
+        }
+    }
+
+    // If the cmdline isn't empty, check it for common attacker flags
+    if (strlen(p->cmdline) > 0) {
+        if (strstr(p->cmdline, "base64 -d") != NULL || strstr(p->cmdline, "base64 --decode") != NULL) {
+            score += 4;
+            strcat(p->issues, "BASE64_DECODE ");
+        }
+        if (strstr(p->cmdline, "/dev/tcp/") != NULL || strstr(p->cmdline, "/dev/udp/") != NULL) {
+            score += 5;
+            strcat(p->issues, "DEV_TCP_SHELL ");
+        }
     }
 
     p->score = score;
-
-    // Return true if it hits "low" risk (score >= 1)
     return (score >= 1);
 }
 
@@ -234,13 +279,13 @@ int compare_scores(const void *a, const void *b){
 void print_result(){
 
     // 1. Sort the results array by severity
-    qsort(result, processcount, sizeof(struct process), compare_scores);
+    qsort(resultprocess, processcount, sizeof(struct process), compare_scores);
 
     // 2. Tally the severities
     int high = 0, med = 0, low = 0;
     for(int i = 0; i < processcount; i++){
-        if(result[i].score >= 6) high++;
-        else if(result[i].score >= 3) med++;
+        if(resultprocess[i].score >= 6) high++;
+        else if(resultprocess[i].score >= 3) med++;
         else low++;
     }
 
@@ -251,7 +296,12 @@ void print_result(){
     printf("HIDDEN_CMDLINE  -> Process is masking its arguments (CRITICAL)\n");
     printf("TMP_EXEC        -> Executing from /tmp or /dev/shm\n");
     printf("ORPHAN_ROOT     -> Parent PID is 1 (potential daemon or pivot)\n");
-    printf("HIGH_FD_COUNT   -> Process has >100 open files/sockets\n");
+    printf("HIGH_FD         -> Process has >100 open files/sockets\n");
+    printf("NAME_MISMATCH   -> Process name does not match the executed binary\n");
+    printf("MEMFD_EXEC      -> Executing directly from memory (Fileless Malware)\n");
+    printf("EXEC_DELETED    -> Binary was deleted from disk after execution\n");
+    printf("BASE64_DECODE   -> Command line contains base64 decoding patterns\n");
+    printf("DEV_TCP_SHELL   -> Command line contains reverse shell network piping\n");
     printf("=================================\n\n");
 
     // 4. Print Summary
@@ -266,20 +316,20 @@ void print_result(){
     printf("========== FINDINGS (sorted by severity) ==========\n\n");
     
     // Table Header
-    printf("%-5s %-20s | %-45s | %-10s | %s\n", "SCORE", "NAME", "BINPATH", "UID:PPID", "FDs");
+    printf("%-5s %-20s | %-45s | %-30s | %-10s | %s\n", "SCORE", "NAME", "BINPATH", "ISSUES", "UID:PPID", "FDs");
     
     for(int i = 0; i < processcount; i++){
-        // Format the UID and PPID into a single string like "0:1"
         char id_str[32];
-        snprintf(id_str, sizeof(id_str), "%d:%d", result[i].uid, result[i].ppid);
+        snprintf(id_str, sizeof(id_str), "%d:%d", resultprocess[i].uid, resultprocess[i].ppid);
         
-        // Use %-XX.XXs to strictly enforce column widths (pads with spaces, truncates if too long)
-        printf("[%d]   %-20.20s | %-45.45s | %-10.10s | %d\n", 
-            result[i].score, 
-            result[i].name, 
-            result[i].binpath, 
+        // Removed the strict .XX truncation limits so data doesn't get cut
+        printf("[%d]   %-20s | %-45s | %-30s | %-10s | %d\n", 
+            resultprocess[i].score, 
+            resultprocess[i].name, 
+            resultprocess[i].binpath, 
+            resultprocess[i].issues,   
             id_str, 
-            result[i].no_of_fd);
+            resultprocess[i].no_of_fd);
     }
     printf("\n");
 }
@@ -289,7 +339,7 @@ void run_process_scan(){
     visit_proc_dir();
     
     if(skipcount > 0){
-        printf("A few Processes were skipped because of permission issues (run program with sudo if possible)");
+        printf("A few Processes were skipped because of permission issues (run program with sudo if possible)\n");
     }
 
     print_result();

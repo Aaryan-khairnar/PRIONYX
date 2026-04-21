@@ -37,7 +37,7 @@ struct FileMetadata {
     ino_t inode;
     dev_t device;
 } result[MAX_FILES];
-static int processcount = 0;
+static int filecount = 0;
 static int skipcount = 0;
 
 /******FUNCTIONS DECLARATION*******/
