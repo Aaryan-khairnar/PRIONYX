@@ -16,7 +16,7 @@ opencode -s ses_f4612b69bffex30JFFPLjpHPMR
 4. [CAPA Project](https://mandiant.github.io/capa/)
 
 
-### Tag prioritization 
+### List of tags, so I can prioritize and rank/score them based on severity 
 
 | Tag              | Observation                                           | Evidence source | Why interesting?                  | Legitimate cases                      | Context needed                | Initial priority |
 | ---------------- | ----------------------------------------------------- | --------------- | --------------------------------- | ------------------------------------- | ----------------------------- | ---------------- |
@@ -28,7 +28,7 @@ opencode -s ses_f4612b69bffex30JFFPLjpHPMR
 | `ORPHAN_ROOT`    | Root process with unusual parent relationship         | `/proc`         | Could indicate detached execution | daemons/services                      | ancestry, service manager     | TBD              |
 | `TMP_EXEC`       | Process executable originates from temporary location | `/proc/PID/exe` | Common execution staging area     | installers, legitimate temp programs  | signer/package/path/domain    | TBD              |
 
-### False Positives
+### False Positives that I usually encounter
 
 | Signal                | Potential false positive   | How to distinguish                   |
 | --------------------- | -------------------------- | ------------------------------------ |
@@ -40,3 +40,62 @@ opencode -s ses_f4612b69bffex30JFFPLjpHPMR
 | root process          | normal daemon              | parent/service relationship          |
 | network listener      | legitimate service         | executable + port + service identity |
 | cron                  | legitimate maintenance job | command ownership + path + user      |
+
+## Notes
+
+#### What to prioritize when collecting data?
+- Develop a plan to acquire data
+- Multiple potential data sources
+- Analyst should create a plan based on prioritization
+- Priority HIGH VALUE DATA > HIGHLY VOLATILE DATA > EASILY ACQUIREABLE DATA
+
+### File Modification, Access, and Creation Times
+- MAC(modification, access and creation) time collection is very important 
+- If an analyst needs to establish an accurate timeline of events, then the file times should be preserved.
+- The computerís clock does not have the correct time. For example, the clock may not have been
+synchronized regularly with an authoritative time source.
+- The time may not be recorded with the expected level of detail, such omitting the seconds or
+minutes.
+- An attacker may have altered the recorded file times.
+
+### Other recommendations
+- Analysts should examine copies of files, not the original files.
+- Analysts should preserve and verify file integrity. 
+- Analysts should rely on file headers, not file extensions, to identify file content types.
+
+### What data can be collected from the OS?
+
+#### Non Volatile Data
+- Configuration Files - both OS configuration + application configuration
+- Users and Groups
+- Password Files
+- Scheduled Jobs
+- System Event logs
+- Audit Records
+- Application Events
+- Command History
+- Recently accessed Files
+- Swap File
+- Dump File - For errors in OS
+- Hibernation File
+- Temporary Files
+- Network Shares
+
+#### Volatile Data
+- Memory Slack Space
+- Free Space
+- Network Configurations
+- Network Connections
+- Running Processes
+- Open Files
+- Login Sessions
+- Operating System Time - Important for correlating events
+
+-> In priority Order
+1. Network connections
+2. Login sessions
+3. Contents of memory
+4. Running processes
+5. Open files
+6. Network configuration
+7. Operating system time
