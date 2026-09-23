@@ -653,3 +653,16 @@ Here's your long-term plan, in the real order to do it — each step small enoug
 
 2.  Harden: compile with gcc -Wall -Wextra clean, run under valgrind for leaks, test as non-root and with sudo, write a demo.sh that runs a full scan and shows before/after, and keep committing.
 
+### Tags
+
+### List of tags, so I can prioritize and rank/score them based on severity 
+
+| Tag              | Observation                                           | Evidence source | Why interesting?                  | Legitimate cases                      | Context needed                | Initial priority |
+| ---------------- | ----------------------------------------------------- | --------------- | --------------------------------- | ------------------------------------- | ----------------------------- | ---------------- |
+| `SUID_ROOT`      | SUID root executable                                  | `stat()`        | Can execute with elevated UID     | Legitimate system binaries            | path, package owner, domain   | TBD              |
+| `WORLD_WRITABLE` | World-writable executable/file                        | `stat()`        | Other users may modify it         | `/tmp`, application data, shared dirs | path, file type, domain       | TBD              |
+| `MEMFD_EXEC`     | Executable mapped from memfd                          | `/proc/PID/exe` | Fileless execution                | rare legitimate uses                  | process, parent, network      | TBD              |
+| `EXEC_DELETED`   | Running executable deleted from disk                  | `/proc/PID/exe` | Can indicate deleted malware      | upgrades/restarts                     | process age, package, parent  | TBD              |
+| `NAME_MISMATCH`  | Process identity differs from executable              | `/proc`         | Possible masquerading             | legitimate renamed processes          | ancestry, cmdline, executable | TBD              |
+| `ORPHAN_ROOT`    | Root process with unusual parent relationship         | `/proc`         | Could indicate detached execution | daemons/services                      | ancestry, service manager     | TBD              |
+| `TMP_EXEC`       | Process executable originates from temporary location | `/proc/PID/exe` | Common execution staging area     | installers, legitimate temp programs  | signer/package/path/domain    | TBD              |
