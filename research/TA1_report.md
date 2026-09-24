@@ -1,10 +1,10 @@
 # TA1 Report - Prionyx
 
 There are four things a triage system needs to do: 
-1. detect malicious processes/files
-2. identify what they are
-3. reconstruct how they got there
-4. build a timeline
+1. Detect malicious processes/files
+2. Identify what they are
+3. Reconstruct how they got there
+4. Build a timeline
 
 ### Sources
 
@@ -196,9 +196,46 @@ Unknown file ---chmod +x--> Unknown file given execute permissions
 
 ## Policy Engine
 
-- 
+- SLEUTH policy inspects:
+  - Binary name
+  - Binary path
+  - Tags - Trusted/untrusted Secret/Sensitive/private/public
+  - Ownership of binary 
+  - File permissions - SUID, Writeable, Executable
+  - Event Type - Read, Write, Execute, Chmod, Rename, Setuid, Network Connection
+  
+- Policy checks the context of the event
+  - Who performed the action?
+  - What object was accessed?
+  - What are their trustworthiness tags?
+  - What are their confidentiality tags?
+  - Is the process privileged?
+  - Is the target object sensitive?
+  - Does the event match a particular condition?
 
+Example of a simple policy
+```
+EVENT: WRITE
 
+IF:
+    process is untrusted
+    AND
+    target is sensitive
+
+THEN:
+    send warning
+```
+
+- For starters, I can use policies such as sigma rules directly 
+  [Sigma - Generic Signature Format for SIEM Systems - LINUX rules](https://github.com/SigmaHQ/sigma/tree/master/rules/linux)
+
+## Backward Reconstruction
+
+- Goal of backward Reconstruction: Find the entry point of the attack
+- Entry point: Untrusted node where attack enters the system
+- SLEUTH uses Dijkstra's Shortest path algorithm for backward
+- Once the graph is constructed I can traverse and find out suspicious paths
+- Once the relevant path is constructed, from the entry point to current event, we can simplify the graph and present it to the analyst
 
 ---
 
@@ -288,23 +325,15 @@ For example:
 
 ```
 CURRENT:
-PID 431 → /tmp/.x → suspicious
+PID 431 -> /tmp/.x -> suspicious
 
-             ↑
-             |
 HISTORY:
-curl → created /tmp/.x
-     → chmod +x
-     → executed
+curl -> created /tmp/.x -> chmod +x -> executed
 ```
-
-Now you have much stronger evidence than simply saying:
-
-> "`/tmp/.x` is executable, therefore suspicious."
 
 ### 4. Report
 
-Finally produce something like:
+Finally after the entry point and attack chain is constructed: 
 
 ```
 Incident: Suspicious executable
@@ -324,5 +353,3 @@ Historical reconstruction:
 Assessment:
   Suspicious execution chain detected
 ```
-
-The important architectural idea is that **snapshot analysis and historical graph analysis are two different layers**, connected by common identifiers such as PID, inode/device, path, timestamps, hashes, sockets, etc.
